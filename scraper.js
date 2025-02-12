@@ -1,6 +1,37 @@
 const { chromium } = require('playwright');
 const fs = require('fs').promises;;
 const path = require('path');
+const configs = require('./config');
+
+// Question categories in AlgoExpert
+const CATEGORIES = [
+  "Arrays",
+  "Binary Search Trees",
+  "Binary Trees",
+  "Dynamic Programming",
+  "Famous Algorithms",
+  "Graphs",
+  "Greedy Algorithms",
+  "Heaps",
+  "Linked Lists",
+  "Recursion",
+  "Searching",
+  "Sorting",
+  "Stacks",
+  "Strings",
+  "Tries"
+];
+
+// Languages of my solutions
+const LANGUAGES = [
+  'Golang',
+  'Java',
+  'JavaScript',
+  'Python'
+];
+
+const BASE_URL  = 'https://www.algoexpert.io';
+const START_URL = 'https://www.algoexpert.io/questions';
 
 /**
  * Manages browser connections
@@ -58,8 +89,9 @@ class PageHandler {
    * @param {string} url 
    */
   async goToUrl(url) {
-    console.log(`Goto: ${url}`);
+    console.log(`Goto: ${url}\n`);
     await this.page.goto(url, { waitUntil: 'networkidle' }); // Realistic waiting
+    await this.page.waitForTimeout(5000);
   }
 
   /**
@@ -71,8 +103,6 @@ class PageHandler {
      try {
       if (typeof selectorOrLocator === 'string') {
         await this.page.waitForSelector(selectorOrLocator, {timeout: 15000});
-        // TODO: remove if no problems encountered with page.locator() below
-        // const element = await this.page.$(selectorOrLocator);
         return await this.page.locator(selectorOrLocator).textContent();
       }
         // return await element.textContent();
@@ -129,8 +159,12 @@ class PageHandler {
    * @returns {Promise<import('playwright').ElementHandle<HTMLElement>>} A promise that resolves to an array of ElementHandle objects.
    */
   async getElements(selector) {
-    await this.page.waitForSelector(selector, {timeout: 15000});
-    return await this.page.locator(selector).all();
+    const elements = await this.page.locator(selector).all(); // Get all matching elements
+    for (const element of elements) {
+      // Wait until each element is attached to the DOM
+      await element.waitFor({ state: 'attached', timeout: 15000 });
+    }
+    return elements; // All elements are attached
   }
 
 }
@@ -161,7 +195,7 @@ class DataExtractor {
 
     // All description paragraphs
     const paragraphsTextContent = await this.extractTextFromElements(pageHandler, '.ae-workspace-dark p');
-    const description = paragraphsTextContent.map(p => this.removeNewlineSpaces(p)).join('\n\n');;
+    const description = paragraphsTextContent.map(p => this.removeNewlineSpaces(p)).join('\n\n');
     console.log('-- Retrived description content');
 
     // Example input & output
@@ -223,7 +257,14 @@ class DataExtractor {
 
       try {
         jsonObject['inputs'] = JSON.parse(inputTxt);
-        jsonObject['expected'] = JSON.parse(expectedTxt);
+
+        // if expectedTxt begins with a letter, save it as a string
+        // else json to avoid the quotes
+        if (/^[a-zA-Z]/.test(expectedTxt)) {
+          jsonObject['expected'] = expectedTxt; 
+        } else {
+          jsonObject['expected'] = JSON.parse(expectedTxt);
+        }
       } catch (error) {
         console.error("Error parsing JSON:", error);
       }
@@ -303,7 +344,7 @@ ${codingQuestion.exampleInput}
 ${codingQuestion.exampleOutput}
 \`\`\`
 `;
-    console.log('Generated question markdown content');
+    console.log('Generated question markdown content\n');
     return markdown;
   }
 
@@ -326,7 +367,7 @@ class FileManager {
     async createDirectory(dirPath) {
         try {
             await fs.mkdir(dirPath, { recursive: true });
-            console.log(`Success! - created directory ${filePath}`);
+            console.log(`Success! - directory already exist or it was created ${dirPath}\n`);
         } catch (error) {
             console.error(`Error creating directory ${dirPath}: ${error}`);
             throw error;
@@ -341,7 +382,7 @@ class FileManager {
     async saveMarkdown(filePath, content) {
         try {
             await fs.writeFile(filePath, content);
-            console.log(`Success! - markdown file saved at path ${filePath}`);
+            console.log(`-- Markdown file saved at path ${filePath}`);
         } catch (error) {
             console.error(`Error saving markdown file ${filePath}: ${error}`);
             throw error;
@@ -361,7 +402,7 @@ class FileManager {
         // const formattedJsonString = jsonString.replace(/\[\n\s*(\[.*?\]),\n\s*(\[.*?\]),\n\s*(\[.*?\])\n\s*\]/g, '[[ $1 ], [ $2 ], [ $3 ]]');
 
         await fs.writeFile(filePath, prettyJson);
-        console.log(`Success! - JSON file saved at path ${filePath}`);
+        console.log(`-- JSON file saved at path ${filePath}`);
       } catch (error) {
         console.error(`Error saving JSON file ${filePath}: ${error}`);
         throw error;
@@ -371,7 +412,7 @@ class FileManager {
     async appendToFile(filePath, content) {
       try {
           await fs.appendFile(filePath, content + '\n');
-          console.log(`Success! - appended content to file ${filePath}`);
+          console.log(`-- Appended url to file ${filePath}\n`);
       } catch (error) {
           console.error(`Error appending to file ${filePath}: ${error}`);
           throw error;
@@ -422,7 +463,6 @@ class Scraper {
     this.pageHandler = null; // Will be initialized after browser connection
     this.dataExtractor = new DataExtractor();
     this.fileManager = new FileManager();
-    this.urlQueue = []; // Queue of URLs to scrape
     this.scrapedUrls = null; // Set of URLs to skip while scrapping. Will be initialized after browser connection
     this.baseUrl = baseUrl;
     this.startUrl = startUrl;
@@ -438,7 +478,7 @@ class Scraper {
     this.pageHandler = new PageHandler(page)
     
     // Init scrapedUrls url set for efficient O(1) lookup
-    this.scrapedUrls = await this.initializeScrapedUrls();
+    await this.initializeScrapedUrls();
     console.log('Loaded URLs that were already scraped');
 
     // Start at the questions URL
@@ -447,6 +487,70 @@ class Scraper {
     const questionsByCategory = await this.dataExtractor.getQuestionsByCategory(
       this.pageHandler, this.categories, this.baseUrl);
     
+    for (const category of questionsByCategory.keys()) {
+      const questionQueue = questionsByCategory.get(category);
+
+
+      let questionNum = 1;
+      while (questionQueue.length > 0) {
+        console.log(`-- Scraping ${category} Question ${questionNum} ---\n`);
+        const url = questionQueue.shift();
+
+        if (this.scrapedUrls.has(url)){
+          console.log(`-- Skipping, question has already been scraped \n`);
+          questionNum++;
+          continue; // Skip if already scraped
+        } 
+  
+        try {
+            await this.pageHandler.goToUrl(url);
+
+            const questionData = await this.dataExtractor.extractQuestionData(this.pageHandler);
+
+            if (!questionData.title || !questionData.description) {
+              console.warn(`Could not extract title or description from ${url}. Skipping.\n`);
+              questionNum++;
+              continue;
+            }
+  
+            let numPrefix = (questionNum > 9) ? `${questionNum}-` : `0${questionNum}-`;
+
+            const dirName = numPrefix + questionData.title.replace(/\s+/g, '-');
+            const dirPath = path.join(configs.downloadBasePath, category, dirName); // base directory
+
+            const markdownPath = path.join(dirPath, 'README.md');
+            const jsonPath = path.join(dirPath, 'testcases.json');
+  
+            // Create question directory if not existing
+            await this.fileManager.createDirectory(dirPath);
+
+            // Create the coding languages subdirectories for the question
+            for (const language of LANGUAGES) {
+              const languageDirectory = path.join(dirPath, language);
+              await this.fileManager.createDirectory(languageDirectory);
+            }
+  
+            // Construct markdown content
+            const markdownContent = this.dataExtractor.generateQuestionMarkdown(questionData);
+
+            // Get testcase data
+            const testcases = await this.dataExtractor.extractTestCases(this.pageHandler);
+
+            console.log('Starting Step: File Handling');
+            await this.fileManager.saveMarkdown(markdownPath, markdownContent);
+            await this.fileManager.saveJson(jsonPath, testcases);
+            await this.fileManager.appendToFile('urls_to_skip.txt', url); // Add to scraped URLs
+
+            this.scrapedUrls.add(url);
+            questionNum++;
+        } catch (error) {
+            console.error(`Error processing URL ${url}: ${error}`);
+            console.log('Skipping and moving to next URL');
+            questionNum++;
+        }
+      }
+    }
+
     await this.browserManager.closeBrowser();
   }
 
@@ -457,43 +561,24 @@ class Scraper {
   async initializeScrapedUrls() {
     try {
       const data = await this.fileManager.readUrlsToSkipFile();
-      this.scrapedUrls = new Set(data.split('\n').map(url => url.trim()));
+      // file is empty
+      if (data == "") {
+        this.scrapedUrls = new Set();
+      } else {
+        this.scrapedUrls = new Set(data.split('\n').map(url => url.trim()));
+      }
     } catch (err) {
       if (err.code === 'ENOENT') { // Handle file not by creating the file
         console.warn('urls_to_skip.txt not found. Creating new file.');
         await this.fileManager.createUrlsToSkipFile();
-        return new Set();
+        this.scrapedUrls = new Set();
       } else {
         console.error('Error reading urls_to_skip.txt:', err);
-        throw err; // Re-throw the error if it's not a "file not found" error
+        throw err; // Re-throw the error if it's a different error
       }
     }
   }
 }
 
-const baseUrl  = 'https://www.algoexpert.io';
-const startUrl = 'https://www.algoexpert.io/questions';
-
-// TODO: remove after texting
-// const startUrl = 'https://www.algoexpert.io/questions/three-number-sum';
-
-// Question categories in AlgoExpert
-const categories = [
-  "Arrays",
-  "Binary Search Trees",
-  "Binary Trees",
-  "Dynamic Programming",
-  "Famous Algorithms",
-  "Graphs",
-  "Greedy Algorithms",
-  "Heaps",
-  "Linked Lists",
-  "Recursion",
-  "Searching",
-  "Sorting",
-  "Stacks",
-  "Strings",
-  "Tries"
-];
-const scraper = new Scraper(baseUrl, startUrl, categories);
+const scraper = new Scraper(BASE_URL, START_URL, CATEGORIES);
 scraper.run();

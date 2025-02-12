@@ -1,3 +1,4 @@
 node_modules
 .DS_Store
 urls_to_skip.txt
+config.js
