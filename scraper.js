@@ -92,7 +92,17 @@ class PageHandler {
   async goToUrl(url) {
     console.log(`Goto: ${url}\n`);
     await this.page.goto(url, { waitUntil: 'networkidle' }); // Realistic waiting
-    await this.page.waitForTimeout(5000);
+    await this.randomWait(2500, 7000);
+  }
+
+  /**
+   * Makes the scraper wait a random amount of time. By default waits between 5 - 12 seconds.
+   * @param {number} [waitMin=5000]  The minimum wait time in milliseconds
+   * @param {number} [waitMax=12000] The maximum wait time in milliseconds
+   */
+  async randomWait(waitMin = 5000, waitMax = 12000) {
+    const waitTime = Math.floor(Math.random() * (waitMax - waitMin + 1)) + waitMin;
+    await this.page.waitForTimeout(waitTime);
   }
 
   /**
@@ -103,7 +113,6 @@ class PageHandler {
   async getElementText(selectorOrLocator) {
      try {
       if (typeof selectorOrLocator === 'string') {
-        await this.page.waitForSelector(selectorOrLocator, {timeout: 15000});
         return await this.page.locator(selectorOrLocator).textContent();
       }
         // return await element.textContent();
@@ -130,15 +139,13 @@ class PageHandler {
    * @param {number} [waitMax=12000] - The maximum waiting time in milliseconds.
    */
   async clickAndWait(selectorOrLocator, waitMin = 5000, waitMax = 12000) {
-    const randomWait = Math.floor(Math.random() * (waitMax - waitMin + 1)) + waitMin;
-
     if (typeof selectorOrLocator === 'string') {
       await this.page.locator(selectorOrLocator).click();
     } else {
       await selectorOrLocator.click();
     }
 
-    await this.page.waitForTimeout(randomWait);
+    await this.randomWait(waitMin, waitMax);
   }
 
   /**
@@ -160,12 +167,7 @@ class PageHandler {
    * @returns {Promise<import('playwright').ElementHandle<HTMLElement>>} A promise that resolves to an array of ElementHandle objects.
    */
   async getElements(selector) {
-    const elements = await this.page.locator(selector).all(); // Get all matching elements
-    for (const element of elements) {
-      // Wait until each element is attached to the DOM
-      await element.waitFor({ state: 'attached', timeout: 15000 });
-    }
-    return elements; // All elements are attached
+    return await this.page.locator(selector).all();
   }
 
 }
