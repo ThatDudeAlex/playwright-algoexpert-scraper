@@ -28,7 +28,7 @@ class BrowserManager {
     this.context = this.browser.contexts()[0];
     this.page = await this.context.newPage(); 
 
-    console.log("Connected!")
+    console.log("Connected!");
     return this.page;
   }
 
@@ -38,6 +38,7 @@ class BrowserManager {
   async closeBrowser() {
     if (this.browser) {
       await this.browser.close();
+      console.log('Succesfully Terminated!')
     }
   }
 }
@@ -57,6 +58,7 @@ class PageHandler {
    * @param {string} url 
    */
   async goToUrl(url) {
+    console.log(`Goto: ${url}`);
     await this.page.goto(url, { waitUntil: 'networkidle' }); // Realistic waiting
   }
 
@@ -139,34 +141,40 @@ class PageHandler {
 class DataExtractor {
 
   /**
-   * @typedef {Object} CodingChallenge
-   * @property {string} title - The title of the coding challenge.
-   * @property {string} description - The description of the challenge.
-   * @property {string} exampleInput - Example input for the challenge.
-   * @property {string} exampleOutput - Example output for the challenge.
+   * @typedef {Object} CodingQuestion
+   * @property {string} title - The title of the coding question.
+   * @property {string} description - The description of the question.
+   * @property {string} exampleInput - Example input for the question.
+   * @property {string} exampleOutput - Example output for the question.
    */
 
   /**
    * @param {PageHandler} pageHandler - The pageHandler component
-   * @returns {Promise<CodingChallenge>} A promise that resolves to a CodingChallenge object.
+   * @returns {Promise<CodingQuestion>} A promise that resolves to a CodingQuestion object.
    */
-  async extractChallengeData(pageHandler) {
+  async extractQuestionData(pageHandler) {
+    console.log('Starting Step: Extraction of question description');
+
     const title = await pageHandler.getElementText('div h2').then(text => text.trim());
+    console.log('-- Retrived title');
 
     // All description paragraphs
     const paragraphsTextContent = await this.extractTextFromElements(pageHandler, '.ae-workspace-dark p');
     const description = paragraphsTextContent.map(p => this.removeNewlineSpaces(p)).join('\n\n');;
+    console.log('-- Retrived description content');
 
     // Example input & output
     const preTagsTexContent = await this.extractTextFromElements(pageHandler, '.ae-workspace-dark pre');
     const exampleInput  = preTagsTexContent[0].trim();
     const exampleOutput = preTagsTexContent[1].trim();
+    console.log('-- Retrived example input & output');
 
-    const codingChallenge = {
+    const codingQuestion = {
       title, description, exampleInput, exampleOutput
     };
 
-    return codingChallenge;
+    console.log('** Success! **\n');
+    return codingQuestion;
   }
 
   /**
@@ -182,12 +190,15 @@ class DataExtractor {
    */
 
   /**
-   * Extracts the testcases of the coding challenge as an array of json objects
+   * Extracts the testcases of the coding question as an array of json objects
    * @param {PageHandler} pageHandler - The pageHandler component
    * @returns {Promise<Array<TestCase>>} A promise that resolves to an array of TestCase objects.
    */
   async extractTestCases(pageHandler) {
-    await pageHandler.clickElemenWithText('button', 'Run Code', 10000, 13000)
+    console.log('Starting Step: Extraction of question testcases');
+
+    await pageHandler.clickElemenWithText('button', 'Run Code', 10000, 13000);
+    console.log('-- Clicked "Run Code" button');
 
     const testcases = [];
     const allCollapsedTestcaseEle = await pageHandler.getElements('.Gvne7CKrNUC1MWWcgX0h .EXdCvTD_bubcEGmmHOFu');
@@ -195,6 +206,7 @@ class DataExtractor {
     for (const element of allCollapsedTestcaseEle) {
       await pageHandler.clickAndWait(element, 4000, 7000);
     }
+    console.log('-- Expanded all collapse testcase elements');
 
     const allTestcaseEle = await pageHandler.getElements('.f7nTfdupWXhhK1Frxcbv .aR1l5rhU3UqdVORse042');
 
@@ -214,14 +226,14 @@ class DataExtractor {
       } catch (error) {
         console.error("Error parsing JSON:", error);
       }
-
       jsonObject['name'] = `Test Case ${testNum++}`;
 
       testcases.push(jsonObject);
       expectIdx = inputIdx  + 1;
       inputIdx  = expectIdx + 2;
     }
-
+    
+    console.log('** Success! **\n');
     return testcases;
   }
 
@@ -229,7 +241,7 @@ class DataExtractor {
    * Extracts the text contents of all elements with the given selector
    * @param {PageHandler} pageHandler - The pageHandler component
    * @param {string} selector - CSS selector for elements 
-   * @returns {Array<string>} Array that contains the text content of each element
+   * @returns {Promise<Array<string>>} Array that contains the text content of each element
    */
   async extractTextFromElements(pageHandler, selector) {
     const elements = await pageHandler.getElements(selector);
@@ -245,27 +257,28 @@ class DataExtractor {
   
 
   /**
-   * Creates a markdown file representation of the coding challenge
-   * @param {CodingChallenge} codingChallenge 
-   * @returns {string} markdown represention of the coding challenge description
+   * Creates a markdown file representation of the coding question
+   * @param {CodingQuestion} codingQuestion 
+   * @returns {string} markdown represention of the coding question description
    */
-  generateChallengeMarkdown(codingChallenge) {
+  generateQuestionMarkdown(codingQuestion) {
     // Construct markdown text
     const markdown = `
-## ${codingChallenge.title}
+## ${codingQuestion.title}
 
-${codingChallenge.description}
+${codingQuestion.description}
 
 ### Sample Input
 \`\`\`
-${codingChallenge.exampleInput}
+${codingQuestion.exampleInput}
 \`\`\`
 
 ### Sample Output
 \`\`\`
-${codingChallenge.exampleOutput}
+${codingQuestion.exampleOutput}
 \`\`\`
 `;
+    console.log('Generated question markdown content');
     return markdown;
   }
 
@@ -288,8 +301,10 @@ class FileManager {
     async createDirectory(dirPath) {
         try {
             await fs.mkdir(dirPath, { recursive: true });
+            console.log(`Success! - created directory ${filePath}`);
         } catch (error) {
             console.error(`Error creating directory ${dirPath}: ${error}`);
+            throw error;
         }
     }
 
@@ -301,8 +316,10 @@ class FileManager {
     async saveMarkdown(filePath, content) {
         try {
             await fs.writeFile(filePath, content);
+            console.log(`Success! - markdown file saved at path ${filePath}`);
         } catch (error) {
             console.error(`Error saving markdown file ${filePath}: ${error}`);
+            throw error;
         }
     }
 
@@ -318,18 +335,21 @@ class FileManager {
         //       line between every array element or remove the line below
         // const formattedJsonString = jsonString.replace(/\[\n\s*(\[.*?\]),\n\s*(\[.*?\]),\n\s*(\[.*?\])\n\s*\]/g, '[[ $1 ], [ $2 ], [ $3 ]]');
 
-        console.log(prettyJson);
         await fs.writeFile(filePath, prettyJson);
+        console.log(`Success! - JSON file saved at path ${filePath}`);
       } catch (error) {
         console.error(`Error saving JSON file ${filePath}: ${error}`);
+        throw error;
       }
     }
 
     async appendToFile(filePath, content) {
       try {
           await fs.appendFile(filePath, content + '\n');
+          console.log(`Success! - appended content to file ${filePath}`);
       } catch (error) {
           console.error(`Error appending to file ${filePath}: ${error}`);
+          throw error;
       }
     }
 
@@ -339,6 +359,7 @@ class FileManager {
     async readUrlsToSkipFile() {
       try {
         const data = await fs.readFile('urls_to_skip.txt', 'utf8'); 
+        console.log(`Success! - read urls_to_skip.txt`);
         return data;
       } catch (error) {
           console.warn(`Error reading urls_to_skip.txt file: ${error}`);
@@ -352,6 +373,7 @@ class FileManager {
     async createUrlsToSkipFile() {
       try {
         await fs.writeFile('urls_to_skip.txt', '');
+        console.log(`Success! - created urls_to_skip.txt`);
       } catch (error) {
           console.error(`Error creating urls_to_skip.txt file: ${error}`);
           throw error;
@@ -392,6 +414,7 @@ class Scraper {
     
     // Init scrapedUrls url set for efficient O(1) lookup
     this.scrapedUrls = await this.initializeScrapedUrls();
+    console.log('Loaded URLs that were already scraped');
 
     await this.browserManager.closeBrowser();
   }
