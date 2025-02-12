@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 const fs = require('fs').promises;;
 const path = require('path');
 const configs = require('./config');
+const selectors = require('./selectors');
 
 // Question categories in AlgoExpert
 const CATEGORIES = [
@@ -190,16 +191,16 @@ class DataExtractor {
   async extractQuestionData(pageHandler) {
     console.log('Starting Step: Extraction of question description');
 
-    const title = await pageHandler.getElementText('div h2').then(text => text.trim());
+    const title = await pageHandler.getElementText(selectors.questionTitle).then(text => text.trim());
     console.log('-- Retrived title');
 
     // All description paragraphs
-    const paragraphsTextContent = await this.extractTextFromElements(pageHandler, '.ae-workspace-dark p');
+    const paragraphsTextContent = await this.extractTextFromElements(pageHandler, selectors.questionParagraph);
     const description = paragraphsTextContent.map(p => this.removeNewlineSpaces(p)).join('\n\n');
     console.log('-- Retrived description content');
 
     // Example input & output
-    const preTagsTexContent = await this.extractTextFromElements(pageHandler, '.ae-workspace-dark pre');
+    const preTagsTexContent = await this.extractTextFromElements(pageHandler, selectors.questionExample);
     const exampleInput  = preTagsTexContent[0].trim();
     const exampleOutput = preTagsTexContent[1].trim();
     console.log('-- Retrived example input & output');
@@ -232,18 +233,18 @@ class DataExtractor {
   async extractTestCases(pageHandler) {
     console.log('Starting Step: Extraction of question testcases');
 
-    await pageHandler.clickElemenWithText('button', 'Run Code', 10000, 13000);
+    await pageHandler.clickElemenWithText(selectors.runButton, selectors.runButtonTxt, 10000, 13000);
     console.log('-- Clicked "Run Code" button');
 
     const testcases = [];
-    const allCollapsedTestcaseEle = await pageHandler.getElements('.Gvne7CKrNUC1MWWcgX0h .EXdCvTD_bubcEGmmHOFu');
+    const allCollapsedTestcaseEle = await pageHandler.getElements(selectors.collapseTestcase);
 
     for (const element of allCollapsedTestcaseEle) {
       await pageHandler.clickAndWait(element, 4000, 7000);
     }
     console.log('-- Expanded all collapse testcase elements');
 
-    const allTestcaseEle = await pageHandler.getElements('.f7nTfdupWXhhK1Frxcbv .aR1l5rhU3UqdVORse042');
+    const allTestcaseEle = await pageHandler.getElements(selectors.testcaseData);
 
     let testNum = 1;
     let expectIdx = 0;
@@ -251,8 +252,8 @@ class DataExtractor {
 
     while (inputIdx < allTestcaseEle.length) {
        // inputTxt is already a string represention of a json object
-      const expectedTxt = await allTestcaseEle[expectIdx].locator('.ae-workspace-dark').textContent();
-      const inputTxt    = await allTestcaseEle[inputIdx].locator('.ae-workspace-dark').textContent();
+      const expectedTxt = await allTestcaseEle[expectIdx].locator(selectors.testcaseDataNested).textContent();
+      const inputTxt    = await allTestcaseEle[inputIdx].locator(selectors.testcaseDataNested).textContent();
       let jsonObject = {};
 
       try {
@@ -308,7 +309,7 @@ class DataExtractor {
     const questionsByCategory = new Map();
 
     for (const category of categories) {
-      const questions = await pageHandler.getElements(`[id="${category}"] .XfBN006G5IBT_e4fZRcU a`);
+      const questions = await pageHandler.getElements(selectors.questionByCategory(category));
       const questionQueue = []; // array will be used as a queue
 
       for (const question of questions) {
@@ -458,15 +459,15 @@ class FileManager {
  * @property {Set<string>} scrapedUrls - 
  */
 class Scraper {
-  constructor(baseUrl, startUrl, categories) {
+  constructor() {
     this.browserManager = new BrowserManager();
     this.pageHandler = null; // Will be initialized after browser connection
     this.dataExtractor = new DataExtractor();
     this.fileManager = new FileManager();
     this.scrapedUrls = null; // Set of URLs to skip while scrapping. Will be initialized after browser connection
-    this.baseUrl = baseUrl;
-    this.startUrl = startUrl;
-    this.categories = categories;
+    this.baseUrl = BASE_URL;
+    this.startUrl = START_URL;
+    this.categories = CATEGORIES;
   }
 
   /**
@@ -580,5 +581,5 @@ class Scraper {
   }
 }
 
-const scraper = new Scraper(BASE_URL, START_URL, CATEGORIES);
+const scraper = new Scraper();
 scraper.run();
