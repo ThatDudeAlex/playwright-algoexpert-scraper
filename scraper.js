@@ -86,7 +86,7 @@ class PageHandler {
   /**
    * Returns the href of `element`
    * @param {import('playwright').Locator | import('playwright').ElementHandle} element
-   * @returns {string} The element href value
+   * @returns {Promise<string>} The element href value
    */
   async getElementHref(element) { // New method to get href of a single element
     return await element.getAttribute('href');
@@ -129,6 +129,7 @@ class PageHandler {
    * @returns {Promise<import('playwright').ElementHandle<HTMLElement>>} A promise that resolves to an array of ElementHandle objects.
    */
   async getElements(selector) {
+    await this.page.waitForSelector(selector, {timeout: 15000});
     return await this.page.locator(selector).all();
   }
 
@@ -253,6 +254,30 @@ class DataExtractor {
     }
     
     return textContentArray;
+  }
+
+  /**
+   * Gets all questions by category
+   * @param {PageHandler} pageHandler - The pageHandler component
+   * @param {Array<string>} categories - Array of question categories in AlgoExpert
+   * @returns {Promise<Map<string, Array<string>>>} Map containing all question URLs by categories. `key = category`, `value = array of urls`
+   */
+  async getQuestionsByCategory(pageHandler, categories, baseUrl) {
+    console.log('Starting Step: Getting questions by categories');
+    const questionsByCategory = new Map();
+
+    for (const category of categories) {
+      const questions = await pageHandler.getElements(`[id="${category}"] .XfBN006G5IBT_e4fZRcU a`);
+      const questionQueue = []; // array will be used as a queue
+
+      for (const question of questions) {
+        const href = await pageHandler.getElementHref(question);
+        questionQueue.push(`${baseUrl}${href}`);
+      }
+      questionsByCategory.set(category, questionQueue);
+    }    
+    console.log('** Success! **\n');
+    return questionsByCategory;
   }
   
 
@@ -416,6 +441,12 @@ class Scraper {
     this.scrapedUrls = await this.initializeScrapedUrls();
     console.log('Loaded URLs that were already scraped');
 
+    // Start at the questions URL
+    await this.pageHandler.goToUrl(this.startUrl);
+
+    const questionsByCategory = await this.dataExtractor.getQuestionsByCategory(
+      this.pageHandler, this.categories, this.baseUrl);
+    
     await this.browserManager.closeBrowser();
   }
 
