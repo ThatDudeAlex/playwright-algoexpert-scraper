@@ -1,4 +1,5 @@
 
 module.exports = {
-  downloadBasePath: '<Enter Download Path HERE>',
+  downloadBasePath: '/path/to/your/download/directory',
+  //... other configuration options
 };
