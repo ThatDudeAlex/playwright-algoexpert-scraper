@@ -7,13 +7,13 @@ This scraper downloads AlgoExpert coding interview questions and their test case
 1. **Clone the repository:**  
 
     ```bash
-    git clone https://github.com/ThatDudeAlex/algoexpert-scraper
+    git clone https://github.com/ThatDudeAlex/playwright-algoexpert-scraper
     ```
 
 2. **Install dependencies:**  
 
     ```bash
-    cd algoexpert-scraper
+    cd playwright-algoexpert-scraper
     npm install
     ```
 
