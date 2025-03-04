@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-const fs = require('fs').promises;;
+const fs = require('fs').promises;
 const path = require('path');
 const configs = require('./config');
 const selectors = require('./selectors');
@@ -31,7 +31,7 @@ const LANGUAGES = [
   'Python'
 ];
 
-const BASE_URL  = 'https://www.algoexpert.io';
+const BASE_URL = 'https://www.algoexpert.io';
 const START_URL = 'https://www.algoexpert.io/questions';
 
 /**
@@ -58,7 +58,7 @@ class BrowserManager {
     // https://stackoverflow.com/questions/71362982/is-there-a-way-to-connect-to-my-existing-browser-session-using-playwright
     this.browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
     this.context = this.browser.contexts()[0];
-    this.page = await this.context.newPage(); 
+    this.page = await this.context.newPage();
 
     console.log("Connected!");
     return this.page;
@@ -111,16 +111,16 @@ class PageHandler {
    * @returns {string} the element text contents
    */
   async getElementText(selectorOrLocator) {
-     try {
+    try {
       if (typeof selectorOrLocator === 'string') {
         return await this.page.locator(selectorOrLocator).textContent();
       }
-        // return await element.textContent();
+      // return await element.textContent();
       return await selectorOrLocator.textContent();
-     } catch (error) {
-         console.error(`Error finding element with selector ${selectorOrLocator}: ${error}`);
-         return null;
-     }
+    } catch (error) {
+      console.error(`Error finding element with selector ${selectorOrLocator}: ${error}`);
+      return null;
+    }
   }
 
   /**
@@ -203,7 +203,7 @@ class DataExtractor {
 
     // Example input & output
     const preTagsTexContent = await this.extractTextFromElements(pageHandler, selectors.questionExample);
-    const exampleInput  = preTagsTexContent[0].trim();
+    const exampleInput = preTagsTexContent[0].trim();
     const exampleOutput = preTagsTexContent[1].trim();
     console.log('-- Retrived example input & output');
 
@@ -253,9 +253,9 @@ class DataExtractor {
     let inputIdx = 2;
 
     while (inputIdx < allTestcaseEle.length) {
-       // inputTxt is already a string represention of a json object
+      // inputTxt is already a string represention of a json object
       const expectedTxt = await allTestcaseEle[expectIdx].locator(selectors.testcaseDataNested).textContent();
-      const inputTxt    = await allTestcaseEle[inputIdx].locator(selectors.testcaseDataNested).textContent();
+      const inputTxt = await allTestcaseEle[inputIdx].locator(selectors.testcaseDataNested).textContent();
       let jsonObject = {};
 
       try {
@@ -264,7 +264,7 @@ class DataExtractor {
         // if expectedTxt begins with a letter, save it as a string
         // else json to avoid the quotes
         if (/^[a-zA-Z]/.test(expectedTxt)) {
-          jsonObject['expected'] = expectedTxt; 
+          jsonObject['expected'] = expectedTxt;
         } else {
           jsonObject['expected'] = JSON.parse(expectedTxt);
         }
@@ -274,10 +274,10 @@ class DataExtractor {
       jsonObject['name'] = `Test Case ${testNum++}`;
 
       testcases.push(jsonObject);
-      expectIdx = inputIdx  + 1;
-      inputIdx  = expectIdx + 2;
+      expectIdx = inputIdx + 1;
+      inputIdx = expectIdx + 2;
     }
-    
+
     console.log('** Success! **\n');
     return testcases;
   }
@@ -296,7 +296,7 @@ class DataExtractor {
       const text = await element.textContent(); // Get text content of each element
       textContentArray.push(text);
     }
-    
+
     return textContentArray;
   }
 
@@ -319,11 +319,11 @@ class DataExtractor {
         questionQueue.push(`${baseUrl}${href}`);
       }
       questionsByCategory.set(category, questionQueue);
-    }    
+    }
     console.log('** Success! **\n');
     return questionsByCategory;
   }
-  
+
 
   /**
    * Creates a markdown file representation of the coding question
@@ -367,87 +367,87 @@ ${codingQuestion.exampleOutput}
  * @typedef {Object} FileManager
  */
 class FileManager {
-    async createDirectory(dirPath) {
-        try {
-            await fs.mkdir(dirPath, { recursive: true });
-            console.log(`Success! - directory already exist or it was created ${dirPath}\n`);
-        } catch (error) {
-            console.error(`Error creating directory ${dirPath}: ${error}`);
-            throw error;
-        }
+  async createDirectory(dirPath) {
+    try {
+      await fs.mkdir(dirPath, { recursive: true });
+      console.log(`Success! - directory already exist or it was created ${dirPath}\n`);
+    } catch (error) {
+      console.error(`Error creating directory ${dirPath}: ${error}`);
+      throw error;
     }
+  }
 
-    /**
-     * Stores a markdown with the given text content in the file path
-     * @param {string} filePath - The path to store the markdown file in
-     * @param {string} content  - The markdown file text content 
-     */
-    async saveMarkdown(filePath, content) {
-        try {
-            await fs.writeFile(filePath, content);
-            console.log(`-- Markdown file saved at path ${filePath}`);
-        } catch (error) {
-            console.error(`Error saving markdown file ${filePath}: ${error}`);
-            throw error;
-        }
+  /**
+   * Stores a markdown with the given text content in the file path
+   * @param {string} filePath - The path to store the markdown file in
+   * @param {string} content  - The markdown file text content 
+   */
+  async saveMarkdown(filePath, content) {
+    try {
+      await fs.writeFile(filePath, content);
+      console.log(`-- Markdown file saved at path ${filePath}`);
+    } catch (error) {
+      console.error(`Error saving markdown file ${filePath}: ${error}`);
+      throw error;
     }
+  }
 
-    /**
-     * Saves the array of json testcase data as a json file in the given path
-     * @param {string} filePath - The path to store the markdown file in
-     * @param {Array<TestCase>} data - array of json data for each testcase
-     */
-    async saveJson(filePath, data) {
-      try {
-        const prettyJson = JSON.stringify(data, null, 2); // Prettified JSON
-        // TODO: decided whether to try and make testcase.json file not have a new line
-        //       line between every array element or remove the line below
-        // const formattedJsonString = jsonString.replace(/\[\n\s*(\[.*?\]),\n\s*(\[.*?\]),\n\s*(\[.*?\])\n\s*\]/g, '[[ $1 ], [ $2 ], [ $3 ]]');
+  /**
+   * Saves the array of json testcase data as a json file in the given path
+   * @param {string} filePath - The path to store the markdown file in
+   * @param {Array<TestCase>} data - array of json data for each testcase
+   */
+  async saveJson(filePath, data) {
+    try {
+      const prettyJson = JSON.stringify(data, null, 2); // Prettified JSON
+      // TODO: decided whether to try and make testcase.json file not have a new line
+      //       line between every array element or remove the line below
+      // const formattedJsonString = jsonString.replace(/\[\n\s*(\[.*?\]),\n\s*(\[.*?\]),\n\s*(\[.*?\])\n\s*\]/g, '[[ $1 ], [ $2 ], [ $3 ]]');
 
-        await fs.writeFile(filePath, prettyJson);
-        console.log(`-- JSON file saved at path ${filePath}`);
-      } catch (error) {
-        console.error(`Error saving JSON file ${filePath}: ${error}`);
-        throw error;
-      }
+      await fs.writeFile(filePath, prettyJson);
+      console.log(`-- JSON file saved at path ${filePath}`);
+    } catch (error) {
+      console.error(`Error saving JSON file ${filePath}: ${error}`);
+      throw error;
     }
+  }
 
-    async appendToFile(filePath, content) {
-      try {
-          await fs.appendFile(filePath, content + '\n');
-          console.log(`-- Appended url to file ${filePath}\n`);
-      } catch (error) {
-          console.error(`Error appending to file ${filePath}: ${error}`);
-          throw error;
-      }
+  async appendToFile(filePath, content) {
+    try {
+      await fs.appendFile(filePath, content + '\n');
+      console.log(`-- Appended url to file ${filePath}\n`);
+    } catch (error) {
+      console.error(`Error appending to file ${filePath}: ${error}`);
+      throw error;
     }
+  }
 
-    /**
-     * Reads the urls_to_skip file 
-     */
-    async readUrlsToSkipFile() {
-      try {
-        const data = await fs.readFile('urls_to_skip.txt', 'utf8'); 
-        console.log(`Success! - read urls_to_skip.txt`);
-        return data;
-      } catch (error) {
-          console.warn(`Error reading urls_to_skip.txt file: ${error}`);
-          throw error;
-      }
+  /**
+   * Reads the urls_to_skip file 
+   */
+  async readUrlsToSkipFile() {
+    try {
+      const data = await fs.readFile('urls_to_skip.txt', 'utf8');
+      console.log(`Success! - read urls_to_skip.txt`);
+      return data;
+    } catch (error) {
+      console.warn(`Error reading urls_to_skip.txt file: ${error}`);
+      throw error;
     }
+  }
 
-    /**
-     * Creates a new urls_to_skip file 
-     */
-    async createUrlsToSkipFile() {
-      try {
-        await fs.writeFile('urls_to_skip.txt', '');
-        console.log(`Success! - created urls_to_skip.txt`);
-      } catch (error) {
-          console.error(`Error creating urls_to_skip.txt file: ${error}`);
-          throw error;
-      }
+  /**
+   * Creates a new urls_to_skip file 
+   */
+  async createUrlsToSkipFile() {
+    try {
+      await fs.writeFile('urls_to_skip.txt', '');
+      console.log(`Success! - created urls_to_skip.txt`);
+    } catch (error) {
+      console.error(`Error creating urls_to_skip.txt file: ${error}`);
+      throw error;
     }
+  }
 }
 
 /**
@@ -479,7 +479,7 @@ class Scraper {
     // Init pageHandler
     const page = await this.browserManager.connectToExistingChrome();
     this.pageHandler = new PageHandler(page)
-    
+
     // Init scrapedUrls url set for efficient O(1) lookup
     await this.initializeScrapedUrls();
     console.log('Loaded URLs that were already scraped');
@@ -489,7 +489,7 @@ class Scraper {
 
     const questionsByCategory = await this.dataExtractor.getQuestionsByCategory(
       this.pageHandler, this.categories, this.baseUrl);
-    
+
     for (const category of questionsByCategory.keys()) {
       const questionQueue = questionsByCategory.get(category);
 
@@ -499,57 +499,57 @@ class Scraper {
         console.log(`-- Scraping ${category} Question ${questionNum} ---\n`);
         const url = questionQueue.shift();
 
-        if (this.scrapedUrls.has(url)){
+        if (this.scrapedUrls.has(url)) {
           console.log(`-- Skipping, question has already been scraped \n`);
           questionNum++;
           continue; // Skip if already scraped
-        } 
-  
+        }
+
         try {
-            await this.pageHandler.goToUrl(url);
+          await this.pageHandler.goToUrl(url);
 
-            const questionData = await this.dataExtractor.extractQuestionData(this.pageHandler);
+          const questionData = await this.dataExtractor.extractQuestionData(this.pageHandler);
 
-            if (!questionData.title || !questionData.description) {
-              console.warn(`Could not extract title or description from ${url}. Skipping.\n`);
-              questionNum++;
-              continue;
-            }
-  
-            let numPrefix = (questionNum > 9) ? `${questionNum}-` : `0${questionNum}-`;
-
-            const dirName = numPrefix + questionData.title.replace(/\s+/g, '-');
-            const dirPath = path.join(configs.downloadBasePath, category, dirName); // base directory
-
-            const markdownPath = path.join(dirPath, 'README.md');
-            const jsonPath = path.join(dirPath, 'testcases.json');
-  
-            // Create question directory if not existing
-            await this.fileManager.createDirectory(dirPath);
-
-            // Create the coding languages subdirectories for the question
-            for (const language of LANGUAGES) {
-              const languageDirectory = path.join(dirPath, language);
-              await this.fileManager.createDirectory(languageDirectory);
-            }
-  
-            // Construct markdown content
-            const markdownContent = this.dataExtractor.generateQuestionMarkdown(questionData);
-
-            // Get testcase data
-            const testcases = await this.dataExtractor.extractTestCases(this.pageHandler);
-
-            console.log('Starting Step: File Handling');
-            await this.fileManager.saveMarkdown(markdownPath, markdownContent);
-            await this.fileManager.saveJson(jsonPath, testcases);
-            await this.fileManager.appendToFile('urls_to_skip.txt', url); // Add to scraped URLs
-
-            this.scrapedUrls.add(url);
+          if (!questionData.title || !questionData.description) {
+            console.warn(`Could not extract title or description from ${url}. Skipping.\n`);
             questionNum++;
+            continue;
+          }
+
+          let numPrefix = (questionNum > 9) ? `${questionNum}-` : `0${questionNum}-`;
+
+          const dirName = numPrefix + questionData.title.replace(/\s+/g, '-');
+          const dirPath = path.join(configs.downloadBasePath, category, dirName); // base directory
+
+          const markdownPath = path.join(dirPath, 'README.md');
+          const jsonPath = path.join(dirPath, 'testcases.json');
+
+          // Create question directory if not existing
+          await this.fileManager.createDirectory(dirPath);
+
+          // Create the coding languages subdirectories for the question
+          for (const language of LANGUAGES) {
+            const languageDirectory = path.join(dirPath, language);
+            await this.fileManager.createDirectory(languageDirectory);
+          }
+
+          // Construct markdown content
+          const markdownContent = this.dataExtractor.generateQuestionMarkdown(questionData);
+
+          // Get testcase data
+          const testcases = await this.dataExtractor.extractTestCases(this.pageHandler);
+
+          console.log('Starting Step: File Handling');
+          await this.fileManager.saveMarkdown(markdownPath, markdownContent);
+          await this.fileManager.saveJson(jsonPath, testcases);
+          await this.fileManager.appendToFile('urls_to_skip.txt', url); // Add to scraped URLs
+
+          this.scrapedUrls.add(url);
+          questionNum++;
         } catch (error) {
-            console.error(`Error processing URL ${url}: ${error}`);
-            console.log('Skipping and moving to next URL');
-            questionNum++;
+          console.error(`Error processing URL ${url}: ${error}`);
+          console.log('Skipping and moving to next URL');
+          questionNum++;
         }
       }
     }
